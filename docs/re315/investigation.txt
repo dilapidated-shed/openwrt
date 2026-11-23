@@ -1,0 +1,239 @@
+RE315 port investigation
+========================
+
+Purpose
+-------
+Develop OpenWrt support for a TP-Link RE315 used as an Ethernet-fed access
+point. The intended physical result is Ethernet from the existing gateway
+to the RE315, with clients using its 2.4 GHz and 5 GHz access points.
+
+This record contains source and vendor-firmware analysis. No RE315 device
+was connected to the analysis environment. It is not a flash procedure,
+a tested device definition, or a declaration of hardware support.
+
+OpenWrt source inspected
+-----------------------
+Repository: https://github.com/dilapidated-shed/openwrt
+Working branch: re315-support
+Upstream base: 14a07b78e9ac9d604547533550e6aa41955ac588
+Both main and re315-support pointed to that commit before this record.
+There was no RE315 device definition at the inspected base.
+
+Existing MT7628/MT7613 reference:
+https://github.com/dilapidated-shed/openwrt/blob/14a07b78e9ac9d604547533550e6aa41955ac588/target/linux/ramips/dts/mt7628an_tplink_archer-c50-v6.dts
+https://github.com/dilapidated-shed/openwrt/blob/14a07b78e9ac9d604547533550e6aa41955ac588/target/linux/ramips/image/mt76x8.mk
+
+The C50 v6 profile uses kmod-mt7615e and kmod-mt7663-firmware-ap.
+Its 8 MiB partition scheme, GPIO assignments, MAC offsets and EEPROM
+locations have not been established for the RE315 and must not be copied
+as RE315 facts. The RE305 uses a different 5 GHz driver family.
+
+The repository has no AGENTS.md or STYLE.md at this base.
+Relevant existing guidance:
+https://github.com/dilapidated-shed/openwrt/blob/14a07b78e9ac9d604547533550e6aa41955ac588/.github/llm-review-rules.md
+
+Documented hardware sample
+--------------------------
+TP-Link FCC submission, FCC ID TE7RE315, internal photographs:
+https://fccid.io/TE7RE315/Internal-Photos/2008RSU037-UE-Internal-Photo-5097932
+https://fccid.io/TE7RE315/Internal-Photos/2008RSU037-UE-Internal-Photo-5097932.pdf
+PDF SHA-256: 89afc76a9c6d2778b1e13e02ae9f021010e17d271a31ed4c72cee63117db5f6c
+
+Page 3: MediaTek MT7628DBN marking.
+Page 4: MediaTek MT7613BEN and GigaDevice 25Q32CSIG markings.
+Page 4: pads labeled VDD33, TXD, RXD and GND.
+The photograph is not a verified pinout, voltage measurement, working
+console or bootloader-access test for the user's unit.
+
+GigaDevice identifies GD25Q32C as 32 Mbit, equivalent to 4 MiB:
+https://www.gigadevice.com/product/flash/spi-nor-flash/gd25q32c
+
+TP-Link's original report links the tested RE315 with RE215 and RE230:
+https://static.tp-link.com/upload/product-overview/2026/202602/20260222/RE315_5GHz_Report.pdf
+Report 2008RSU037-E3, page 6, describes common RE215/RE315 hardware and
+an antenna difference from RE230. This concerns the 2020 test samples;
+the later upload date is not evidence about later hardware revisions.
+It does not establish interchangeable firmware or calibration data.
+
+Vendor firmware inspected
+-------------------------
+Official download listing:
+https://www.tp-link.com/us/support/download/re315/v1/
+
+Official archive:
+https://static.tp-link.com/2020/202010/20201009/RE315%28V1%29_200904.zip
+Archive SHA-256:
+0a4d6cf30cb7aa9a0a76fd0c4542e94856ce012b236d3146e7a702213eb6e28c
+Archive size: 3050513 bytes
+
+Archive member:
+RE315(V1)_200904/re315v1-up-noboot-ver1-0-0-P1[20200904-rel54608].bin
+Member size: 2547996 bytes
+Member SHA-256:
+7352dc953c451b2d71074f68d863f48af4268e5df668a6512e7f75cd956e2bf1
+
+Identity established: vendor-distributed RE315 US V1 200904 update.
+Identity NOT established: the firmware installed on the user's device.
+This update is not a full readout of the user's flash, bootloader,
+configuration, MAC addresses or factory calibration data.
+
+Offsets labeled as file offsets are within the named downloaded member
+or decompressed payload. The vendor-computed flash map below is a separate
+address space and is explicitly identified as such.
+
+Payload extraction
+------------------
+Two bounded ranges were copied with dd and decompressed with xz in
+LZMA mode. No payload code was executed.
+
+Range A:
+  update offset: 0x000000D4
+  sliced length: 49050 bytes
+  decompressed length: 132124 bytes
+  decompressed SHA-256:
+  a68bfdf536b3963861570c98782ecbc379882864003f44f1e778bcc01373659c
+
+Range B:
+  update offset: 0x0000C070
+  sliced length: 1499294 bytes
+  decompressed length: 5077312 bytes
+  decompressed SHA-256:
+  800aa83243b36ff59c0fabd062df271932ab934deed50f89b3e66863b526f0aa
+
+Range B contains the main MIPS VxWorks image, including the strings:
+  VxWorks5.5.1
+  Sep  4 2020
+  MT7628(MIPS32)
+
+This establishes a VxWorks main-system payload in this vendor release.
+It does not identify the currently installed firmware.
+
+Range A contains U-Boot 2014.04-rc1 / leopard_e material identifying an
+ARM platform. It must not be treated as the MT7628 MIPS main bootloader.
+The precise role of that separate payload has not been established.
+
+A MINIFS marker was observed at update-file offset 0x0017B014.
+This is a file-container observation, not a physical flash partition.
+
+Configured memory boundary
+--------------------------
+Range B includes a VxWorks symbol table. For sysMemTop:
+
+  symbol-name offset in decompressed file: 0x0046A5FC
+  symbol-name pointer: 0x8046B5FC
+  symbol-table entry offset: 0x004D2030
+  symbol value: 0x800FE4EC
+  inferred image address base: 0x80001000
+  function file offset: 0x000FD4EC
+
+The symbol-table entry consists of these little-endian words:
+  00000000 8046b5fc 800fe4ec 00050000
+
+The function's first 14 instruction words are:
+  3c04804f 8c825568 14400008 3c03804f
+  8c62556c 14400004 00000000 3c028100
+  ac62556c 8c62556c ac825568 3c02804f
+  03e00008 8c425568
+
+At file offset 0x000FD508, instruction 0x3C028100 is
+lui v0,0x8100. In the zero-initialized path this supplies 0x81000000
+to the memory-top globals. Relative to MIPS cached segment base
+0x80000000, that is a 0x01000000-byte (16 MiB) boundary.
+
+Conclusion: this vendor image has a default 16 MiB memory boundary.
+This is strong static evidence for its memory configuration, not a
+measurement of physical or usable RAM on the user's unit. The function
+can use already initialized globals, so runtime override has not been
+excluded. Do not publish 64 MiB as an established RE315 specification.
+
+Vendor flash-layout data
+------------------------
+Range B contains the flashLayout symbol, value 0x804736A4, corresponding
+to file offset 0x004726A4. After 12 zero metadata bytes, six 24-byte
+entries contain an initially zero offset, a size, and a 16-byte name.
+
+Entry       Size hexadecimal    Size bytes
+BOOTIMG     0x0000D000           53248
+FIRMWARE    0x003ED000           4116480
+CONFIG      0x00002000           8192
+EXPLOG      0x00002000           8192
+PROFILE     0x00001000           4096
+RADIO       0x00001000           4096
+TOTAL       0x00400000           4194304
+
+These are observed vendor-declared sizes. Their total independently
+matches the 4 MiB flash chip in the FCC sample.
+
+The flashIoInit symbol has value 0x8008AF58, hence file offset 0x00089F58.
+Its initialization loop at file offset 0x0008A018 is:
+  3c028047 244336b0 3c028047 24453740
+  00002021 8c620004 ac640000 24630018
+  1465fffc 00822021
+
+The loop sets the record pointer to 0x804736B0, the end pointer to
+0x80473740, and the running offset to zero. It loads each size at
+record+4, stores the running offset at record+0, advances by 0x18,
+and adds the size in the branch delay slot. This establishes these
+computed starts for the vendor program:
+
+Entry       Start       Size        End, exclusive
+BOOTIMG     0x000000    0x00D000    0x00D000
+FIRMWARE    0x00D000    0x3ED000    0x3FA000
+CONFIG      0x3FA000    0x002000    0x3FC000
+EXPLOG      0x3FC000    0x002000    0x3FE000
+PROFILE     0x3FE000    0x001000    0x3FF000
+RADIO       0x3FF000    0x001000    0x400000
+
+This is the downloaded program's computed flash map. It has not been
+matched to a readout of the user's device. Erase geometry, calibration
+contents, later modifications and applicability to the installed
+firmware remain unverified. The RADIO name alone does not identify the
+complete per-radio NVMEM layout. Do not turn these offsets into flashing
+commands or assume that the C50 v6 EEPROM length fits this region.
+
+The image also contains implementation/help text for flash layout,
+flash reads and memory inspection. Presence in the binary does not prove
+that the user's firmware exposes an accessible console.
+
+The update container has an IMG0 marker at file offset 0x14 and a size
+word matching the update length minus 0x14. Upgrade-rejection strings
+refer to magic, product/main-version/OEM IDs, MD5 checks and section
+sizes. The complete checksum/signature convention and accepted repacking
+procedure remain unknown; no replacement container has been produced.
+
+Physical evidence still required
+-------------------------------
+1. Actual device label: full model/region, hardware revision and FCC ID.
+2. Installed firmware version and complete build string.
+3. Read-only serial boot log and verified console electrical/pin data.
+4. Bootloader memory report, commands and any supported RAM boot path.
+5. Complete flash backup from this unit, with repeated-read integrity
+   checks and protected bootloader/factory regions identified.
+6. Per-interface MAC and radio calibration locations.
+7. Verified Ethernet port, reset, button and LED assignments.
+
+A configuration export is not a full flash backup. A factory reset is
+not proof of recovery from a failed firmware image. A downloadable
+vendor update is not the user's factory-data backup.
+
+Implementation and acceptance state
+-----------------------------------
+Vendor-image extraction: completed and hashed.
+Vendor-image OS identification: VxWorks payload observed.
+Default memory boundary: 16 MiB static configuration observed.
+Vendor flash layout: sizes and computed starts observed, total 4 MiB.
+Actual unit identity: UNKNOWN.
+Actual physical RAM: UNKNOWN.
+Actual full backup/calibration backup: NOT OBTAINED.
+Verified RE315 recovery procedure: UNKNOWN.
+RE315 DTS/image definition: NOT CREATED; board values remain unverified.
+Minimal RE315 build and image measurement: NOT RUN.
+RAM boot on RE315: NOT RUN.
+Ethernet and dual-band AP operation: NOT RUN.
+Client DHCP through the existing gateway: NOT RUN.
+Configuration persistence after power cycle: NOT RUN.
+Recovery after an intentional failed boot: NOT RUN.
+
+The immediate blocker is access to and identification of the physical
+unit. No cross-flash, guessed memory map, generic-model build, emulator
+result or CI result can satisfy these physical acceptance items.
