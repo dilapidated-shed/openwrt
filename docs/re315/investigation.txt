@@ -73,9 +73,10 @@ Member SHA-256:
 7352dc953c451b2d71074f68d863f48af4268e5df668a6512e7f75cd956e2bf1
 
 Identity established: vendor-distributed RE315 US V1 200904 update.
-Identity NOT established: the firmware installed on the user's device.
-This update is not a full readout of the user's flash, bootloader,
-configuration, MAC addresses or factory calibration data.
+This 2020 image is older than the firmware installed on the user's unit.
+The current installed build is recorded separately below. The downloadable
+update is not a full readout of the user's flash, bootloader, configuration,
+MAC addresses or factory calibration data.
 
 Offsets labeled as file offsets are within the named downloaded member
 or decompressed payload. The vendor-computed flash map below is a separate
@@ -201,16 +202,41 @@ refer to magic, product/main-version/OEM IDs, MD5 checks and section
 sizes. The complete checksum/signature convention and accepted repacking
 procedure remain unknown; no replacement container has been produced.
 
+Installed device: web UI evidence, 2026-11-22
+---------------------------------------------
+The user supplied a screenshot of their actual RE315 at http://192.168.0.254/
+on System Tools > Firmware Upgrade. The screenshot directly reports:
+  Hardware Version: RE315 1.0
+  Firmware Version: 1.0.30 Build 230919 Rel.52342n (8583)
+The device UI confirms the generic V1 hardware class and installed firmware
+string, but does not display the region suffix, FCC ID, or flash dump.
+The code 230919 is a build date code (2023-09-19).
+
+Official TP-Link US V1 firmware page lists the matching version and build:
+https://www.tp-link.com/us/support/download/re315/v1/
+  RE315(US)_V1_1.0.30 Build 230919; published 2023-12-01.
+  Official archive URL linked by the TP-Link US download page:
+https://static.tp-link.com/upload/firmware/2023/202312/20231201/RE315_V1_230919.zip
+The link was resolved, but the archive bytes have NOT been downloaded,
+hashed, compared to the installed flash, or analyzed in this investigation.
+TP-Link's EU V1 download page also lists 1.0.30 Build 230919, so version
+and date alone must NOT be used to infer US regulatory identity:
+https://www.tp-link.com/nordic/support/download/re315/v1/
+
+The downloaded 2020 US V1 image's VxWorks and 4 MiB findings are useful
+reference evidence but not confirmation of those properties in the user's
+newer 2023-installed image. No upgrade should be initiated for this study.
+
 Physical evidence still required
 -------------------------------
-1. Actual device label: full model/region, hardware revision and FCC ID.
-2. Installed firmware version and complete build string.
-3. Read-only serial boot log and verified console electrical/pin data.
-4. Bootloader memory report, commands and any supported RAM boot path.
-5. Complete flash backup from this unit, with repeated-read integrity
+1. Actual device label: region-specific model suffix and FCC ID; cross-check
+   the confirmed RE315 1.0 hardware version.
+2. Read-only serial boot log and verified console electrical/pin data.
+3. Bootloader memory report, commands and any supported RAM boot path.
+4. Complete flash backup from this unit, with repeated-read integrity
    checks and protected bootloader/factory regions identified.
-6. Per-interface MAC and radio calibration locations.
-7. Verified Ethernet port, reset, button and LED assignments.
+5. Per-interface MAC and radio calibration locations.
+6. Verified Ethernet port, reset, button and LED assignments.
 
 A configuration export is not a full flash backup. A factory reset is
 not proof of recovery from a failed firmware image. A downloadable
@@ -222,7 +248,11 @@ Vendor-image extraction: completed and hashed.
 Vendor-image OS identification: VxWorks payload observed.
 Default memory boundary: 16 MiB static configuration observed.
 Vendor flash layout: sizes and computed starts observed, total 4 MiB.
-Actual unit identity: UNKNOWN.
+Actual unit UI hardware version: RE315 1.0; CONFIRMED by user screenshot.
+Actual installed firmware: 1.0.30 Build 230919 Rel.52342n (8583);
+  CONFIRMED by user screenshot.
+Actual unit region and FCC ID: UNKNOWN pending physical label.
+Official 2023-09-19 build's US archive: LISTED; bytes NOT ANALYZED.
 Actual physical RAM: UNKNOWN.
 Actual full backup/calibration backup: NOT OBTAINED.
 Verified RE315 recovery procedure: UNKNOWN.
